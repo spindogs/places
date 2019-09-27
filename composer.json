@@ -1,0 +1,23 @@
+{
+    "name": "spindogs/sd-places",
+    "description": "Google Places API middleman for Spindogs",
+    "type": "library",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Corin Simpson-Bryars",
+            "email": "cbryars@spindogs.com"
+        }
+    ],
+    "require": {
+        "php": "^7.1",
+        "spatie/schema-org": "^2.6",
+        "guzzlehttp/guzzle": "^6.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Spindogs\\Places\\": "src/",
+            "Spindogs\\Places\\Utils\\": "src/utils"
+        }
+    }
+}
