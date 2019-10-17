@@ -1,5 +1,5 @@
 {
-    "name": "spindogs/sd-places",
+    "name": "spindogs/places",
     "description": "Google Places API middleman for Spindogs",
     "version": "0.1.3",
     "type": "library",
