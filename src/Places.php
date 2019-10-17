@@ -13,11 +13,24 @@ use Exception;
 
 class Places {
 
-    const ADDRESS_MAP = [
+    const PLACE_LOCAL_BUSINESS = "localBusiness";
+    const PLACE_FURNITURE_STORE = "furnitureStore";
+
+    /**
+     * 3 hours in seconds
+     */
+    const CACHE_EXPIRY_HOURS = 3;
+
+    private const ADDRESS_MAP = [
         'premise' => 'addressLocality',
         'postal_town' => 'addressRegion',
         'country' => 'addressCountry',
         'postal_code' => 'postalCode'
+    ];
+
+    private const PLACE_TYPE_WHITELIST = [
+        self::PLACE_LOCAL_BUSINESS,
+        self::PLACE_FURNITURE_STORE
     ];
 
     const DAY_MAP = [
@@ -31,14 +44,19 @@ class Places {
     ];
 
     /**
-     * @var null|string
+     * @var $google_api_key null|string
      */
     private $google_api_key;
 
     /**
-     * @var null|string
+     * @var $place_id null|string
      */
     private $place_id;
+
+    /**
+     * @var $google_cache_path string
+     */
+    private $google_cache_path;
 
     /**
      * @var $pl_name string
@@ -52,6 +70,11 @@ class Places {
     protected $pl_name, $pl_url, $pl_logo, $pl_description, $pl_image, $pl_telephone, $pl_has_map;
 
     /**
+     * @var $pl_type string
+     */
+    protected $pl_type = self::PLACE_LOCAL_BUSINESS;
+
+    /**
      * @var $pl_address PostalAddress
      */
     protected $pl_address;
@@ -61,9 +84,9 @@ class Places {
      */
     protected $pl_geo_coordinate;
 
-	/**
-	 * @var $pl_contact_point ContactPoint
-	 */
+    /**
+     * @var $pl_contact_point ContactPoint
+     */
     protected $pl_contact_point;
 
     /**
@@ -79,25 +102,44 @@ class Places {
     /**
      * @var $google_response null|object
      */
-    protected $google_response = null;
+    public $google_response = null;
 
     /**
      * Creates object, if both Google API key and Place ID are set, almost all fields will be pre-populated.
-	 *
-	 * An example response is commented out for testing
-	 *
+     * An example response is commented out for testing
      * @param null|string $api_key
      * @param null|string $place_id
+     * @throws Exception
      */
     public function __construct(?string $api_key = null, ?string $place_id = null) {
         $this->google_api_key = $api_key;
         $this->place_id = $place_id;
 
         if ($this->google_api_key !== null && $this->place_id !== null) {
-            $response = Utils\HTTPRequest::performGooglePlaceQuery($this->google_api_key, $this->place_id);
-            //$response = json_decode('{"html_attributions":[],"result":{"address_components":[{"long_name":"54","short_name":"54","types":["street_number"]},{"long_name":"Bute Street","short_name":"Bute St","types":["route"]},{"long_name":"Cardiff","short_name":"Cardiff","types":["postal_town"]},{"long_name":"Cardiff","short_name":"Cardiff","types":["administrative_area_level_2","political"]},{"long_name":"Wales","short_name":"Wales","types":["administrative_area_level_1","political"]},{"long_name":"United Kingdom","short_name":"GB","types":["country","political"]},{"long_name":"CF10 5AF","short_name":"CF10 5AF","types":["postal_code"]}],"adr_address":"<span class=\"street-address\">54 Bute St<\/span>, <span class=\"locality\">Cardiff<\/span> <span class=\"postal-code\">CF10 5AF<\/span>, <span class=\"country-name\">UK<\/span>","formatted_address":"54 Bute St, Cardiff CF10 5AF, UK","formatted_phone_number":"029 2048 0720","geometry":{"location":{"lat":51.466411,"lng":-3.1660516},"viewport":{"northeast":{"lat":51.46773733029149,"lng":-3.164800719708498},"southwest":{"lat":51.4650393697085,"lng":-3.167498680291502}}},"icon":"https:\/\/maps.gstatic.com\/mapfiles\/place_api\/icons\/generic_business-71.png","id":"61a0bdf343b9f5610d144906d8ab3675f9847d89","international_phone_number":"+44 29 2048 0720","name":"Spindogs","opening_hours":{"open_now":true,"periods":[{"close":{"day":1,"time":"1730"},"open":{"day":1,"time":"0900"}},{"close":{"day":2,"time":"1730"},"open":{"day":2,"time":"0900"}},{"close":{"day":3,"time":"1730"},"open":{"day":3,"time":"0900"}},{"close":{"day":4,"time":"1730"},"open":{"day":4,"time":"0900"}},{"close":{"day":5,"time":"1700"},"open":{"day":5,"time":"0900"}}],"weekday_text":["Monday: 9:00 AM \u2013 5:30 PM","Tuesday: 9:00 AM \u2013 5:30 PM","Wednesday: 9:00 AM \u2013 5:30 PM","Thursday: 9:00 AM \u2013 5:30 PM","Friday: 9:00 AM \u2013 5:00 PM","Saturday: Closed","Sunday: Closed"]},"photos":[{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAdfC4XQWosL87Zd9DuTVbRosK2OttqCEU98ffGHedQ33gDPqulVf1Ke1YV1iad15S7EvRQpSa81Fznc6IaF3F-HPR0t1xZrfCZhNdg0GThLFtrHfxwi5q474E95d8UABxEhC6oSsb5ShadZzNgLIiPINxGhSfvPonGuqHoSt1g_i4us_LVjeu1Q","width":5760},{"height":3333,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAzETJ6ROMv-9roL-y29MeRMyDTW8DyiVZpgCX5j-p1zviXsEHnjovCX79safTL58fNvxr0UeLDNAHjyAiFkKnQ5IyR_wyHjpFaxIbAjstF30QXxXOe5JXCbQ974iiU2bbEhB0Bo6dMZVicju0FTqcJ7K_GhQAWCq1NVYdjTJluyly6gS7IzVH3Q","width":5000},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAt0gZYuLOlctRK_o7yII7R7Vo61RvGvJvosdqN9s5-hb6LVTEqY-Wd4vVHKgTeTWECDc768MnD6DOmKjQeGKgGjlMadjS4Ac3IT6nwdn8UwVgD8Q6NO3jonD3eKswlTKAEhDCcC3eCMK_sMYzacTaCEzFGhT5gMa2kT6E_xGz4TgcL-O0W9MrZg","width":5760},{"height":3333,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAcx9zQB3zKe33f7SmxmY9A57k8aPotqfJCQt6_AeidaAz3-vUjfP3mQvakZHPxA6coOy0t31McxyWps8ADGv54gLr_hYRNkIvKzjq3lYrTvG8uEKyw1lM7vsYhnlrsJUIEhCJSHsBblp0h-EHtmrpgfjgGhSj0-ELX6ORCYceWlVkaYNj5OZ_lg","width":5000},{"height":437,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAcju4hMzaknY8m2QWmOPfOdgojYuywFPzUZlzxJY2xhC5fsRnVMAOprlCfUew2wMeSzYDZcSIGnB9yxARGTNO-BBuU_qvWk3v3f_zrpTJ4EWUL9kET1Nk0xcoctcpx3fTEhBeRkVXEEAJlGq9j9bPmO4DGhQKAt6cYXXfBLt9QcHAT1VYbXpJqQ","width":960},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/116369362047103291012\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAFYqM2NC6RYBDOvpsA4wxC7eWuhAVon4eZxrGp0pvr_PS4MLdeisWE9R_tq6dqjEOZglquDzIySq-BwVzYvvUZjixxCQ4xQ1bfWkUUVhzLJEb7Yg6IqGXhhZwBnTxzobeEhB1zYKec4FhjGMeSTJeKF9pGhTaOFTALC5I3RYLXknujpyH5FiYgg","width":5760},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/116369362047103291012\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAenm-KU2cCT5PoAhCa2Sm0bKpopEv4dYawoD5lFC45udEQhH2Z16vaI47-st1TByKs29OEcCFkz1Vr5yqrI34UPWW6I4JwZQcPuFYwAfdrgqp_q2knJVxIULG-Dx5TFFSEhD46DVYOw9o_kIgbG-E_KCdGhQUOmN-1AZmIIgEMn_-GoHPKIWzIQ","width":5760},{"height":3709,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/116369362047103291012\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAA6FyJAEUsw_LicsYJj1LQNFBu1ONBIysRib4ZuXyw_Qi03sy9e-H_hZjupX_9872akZ18GHfYDyKyzZ8Z0Kf0CLex-Y4X326RHO0PuY3V9o8etjYgK1FAlSsgJfV1sjBjEhDDWJedM48i6jDDZQQO4h9oGhTLzMIqKzfxHfHgr-iwgJdPbMPuMg","width":5564},{"height":3333,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAARnqzGgDq3RGaeqz0kp2SYlG5Y1diceYwM7rRJOcjqC3tD_ov8P_Anmeg8KyznN3VvCYhzuahCKEbGl8WlZW3oGmbRIjACRGQA9Jd2w6TEfbuvpepMFP_4Ndssr6feIJ5EhCRvUOgfH7pFNHLZS2bhwA7GhQ8D6TzyLqs9di_IWxeZtbakGWZmA","width":5000},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAJ4exQ6ifZXjHcBfgjrInfNr1EE4T5XBh5KcIN_mGgYwXe4_KXieUpxwg382ePJGMm6HkYi-K1z-N685IWYWeBdselM7TOyDt4uGspzo0Y6a-tCq5oGVLR8HXbYn_b5MAEhCGXIYg_RPON6Ym5XtgFWdeGhRcq8iLby6xGNderLqhLURrsjC2Yg","width":5760}],"place_id":"ChIJK7_8bDYDbkgREXPRuCnmM3A","plus_code":{"compound_code":"FR8M+HH Cardiff, United Kingdom","global_code":"9C3RFR8M+HH"},"rating":5,"reference":"ChIJK7_8bDYDbkgREXPRuCnmM3A","reviews":[{"author_name":"Liam Darkside","author_url":"https:\/\/www.google.com\/maps\/contrib\/103708721103535619018\/reviews","language":"en","profile_photo_url":"https:\/\/lh5.ggpht.com\/-Sv1Ytpn_4ew\/AAAAAAAAAAI\/AAAAAAAAAAA\/0D9gviKPKZM\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"4 months ago","text":"Fantastic company, offered great advice, especially from Dave Morgan.  That guy is a legend, I wish they had 10 of him.  He really knows his stuff on a technical level but he is also just a top bloke.","time":1559145211},{"author_name":"Houston Mapstone","author_url":"https:\/\/www.google.com\/maps\/contrib\/107455956974572253438\/reviews","language":"en","profile_photo_url":"https:\/\/lh6.ggpht.com\/-ZfP_oBfcUVU\/AAAAAAAAAAI\/AAAAAAAAAAA\/hCQWr0ftQmo\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"5 months ago","text":"Chelsea delivered an excellent SEO training session, very informative and helpful.","time":1556197557},{"author_name":"Tara Peters","author_url":"https:\/\/www.google.com\/maps\/contrib\/106517777175719144692\/reviews","language":"en","profile_photo_url":"https:\/\/lh4.ggpht.com\/-Yqx7-NFne2Y\/AAAAAAAAAAI\/AAAAAAAAAAA\/t2o4DsLO7yo\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"a year ago","text":"Spindogs are a lovely company to be involved with. Each member of the team is incredibly friendly and welcoming. I have had the privilege to work here for a few weeks as an intern. The whole team have made my experience thoroughly enjoyable, and I have really felt like part of the crew. It's so important to work in an environment where you feel comfortable and happy, which is exactly the vibes that you get in and out of the office here. Thank you guys! :)","time":1516111149},{"author_name":"Ian Jolly","author_url":"https:\/\/www.google.com\/maps\/contrib\/111718589181691770368\/reviews","language":"en","profile_photo_url":"https:\/\/lh3.ggpht.com\/-zIKaCkj7Dlo\/AAAAAAAAAAI\/AAAAAAAAAAA\/55tfxr99ZCo\/s128-c0x00000000-cc-rp-mo-ba3\/photo.jpg","rating":5,"relative_time_description":"a year ago","text":"Great guys who do some exiting stuff. Such a fun company to work with and really get the creative juices flowing. Will definitely add value to your business with them on side.","time":1512647759},{"author_name":"Laura Lowe","author_url":"https:\/\/www.google.com\/maps\/contrib\/116024385364385977687\/reviews","language":"en","profile_photo_url":"https:\/\/lh5.ggpht.com\/-b0Pk9ek2mVQ\/AAAAAAAAAAI\/AAAAAAAAAAA\/GTxpbhOh9bM\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"a year ago","text":"THE most energised, forward thinking yet down to earth company I have ever worked for! It\u2019s a privilege to work with such a great team.","time":1516112718}],"scope":"GOOGLE","types":["point_of_interest","establishment"],"url":"https:\/\/maps.google.com\/?cid=8085058822928954129","user_ratings_total":21,"utc_offset":60,"vicinity":"54 Bute Street, Cardiff","website":"https:\/\/www.spindogs.co.uk\/"},"status":"OK"}');
-            if ($response && $response->status == 'OK') {
-                $this->google_response = $response->result;
+            // Generates a unique filename
+            $cache_filename = md5(__FILE__.'-'.$this->google_api_key.'-'.$this->place_id);
+            $this->google_cache_path = sys_get_temp_dir().'/'.$cache_filename.'.json';
+
+            // If file doesn't exist or has expired, create it basically
+            if (!file_exists($this->google_cache_path) || (time() - filemtime($this->google_cache_path) >= (60 * 60 * 24 * self::CACHE_EXPIRY_HOURS))) {
+                $response = Utils\HTTPRequest::performGooglePlaceQuery($this->google_api_key, $this->place_id);
+
+                //$response = json_decode('{"html_attributions":[],"result":{"address_components":[{"long_name":"54","short_name":"54","types":["street_number"]},{"long_name":"Bute Street","short_name":"Bute St","types":["route"]},{"long_name":"Cardiff","short_name":"Cardiff","types":["postal_town"]},{"long_name":"Cardiff","short_name":"Cardiff","types":["administrative_area_level_2","political"]},{"long_name":"Wales","short_name":"Wales","types":["administrative_area_level_1","political"]},{"long_name":"United Kingdom","short_name":"GB","types":["country","political"]},{"long_name":"CF10 5AF","short_name":"CF10 5AF","types":["postal_code"]}],"adr_address":"<span class=\"street-address\">54 Bute St<\/span>, <span class=\"locality\">Cardiff<\/span> <span class=\"postal-code\">CF10 5AF<\/span>, <span class=\"country-name\">UK<\/span>","formatted_address":"54 Bute St, Cardiff CF10 5AF, UK","formatted_phone_number":"029 2048 0720","geometry":{"location":{"lat":51.466411,"lng":-3.1660516},"viewport":{"northeast":{"lat":51.46773733029149,"lng":-3.164800719708498},"southwest":{"lat":51.4650393697085,"lng":-3.167498680291502}}},"icon":"https:\/\/maps.gstatic.com\/mapfiles\/place_api\/icons\/generic_business-71.png","id":"61a0bdf343b9f5610d144906d8ab3675f9847d89","international_phone_number":"+44 29 2048 0720","name":"Spindogs","opening_hours":{"open_now":true,"periods":[{"close":{"day":1,"time":"1730"},"open":{"day":1,"time":"0900"}},{"close":{"day":2,"time":"1730"},"open":{"day":2,"time":"0900"}},{"close":{"day":3,"time":"1730"},"open":{"day":3,"time":"0900"}},{"close":{"day":4,"time":"1730"},"open":{"day":4,"time":"0900"}},{"close":{"day":5,"time":"1700"},"open":{"day":5,"time":"0900"}}],"weekday_text":["Monday: 9:00 AM \u2013 5:30 PM","Tuesday: 9:00 AM \u2013 5:30 PM","Wednesday: 9:00 AM \u2013 5:30 PM","Thursday: 9:00 AM \u2013 5:30 PM","Friday: 9:00 AM \u2013 5:00 PM","Saturday: Closed","Sunday: Closed"]},"photos":[{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAdfC4XQWosL87Zd9DuTVbRosK2OttqCEU98ffGHedQ33gDPqulVf1Ke1YV1iad15S7EvRQpSa81Fznc6IaF3F-HPR0t1xZrfCZhNdg0GThLFtrHfxwi5q474E95d8UABxEhC6oSsb5ShadZzNgLIiPINxGhSfvPonGuqHoSt1g_i4us_LVjeu1Q","width":5760},{"height":3333,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAzETJ6ROMv-9roL-y29MeRMyDTW8DyiVZpgCX5j-p1zviXsEHnjovCX79safTL58fNvxr0UeLDNAHjyAiFkKnQ5IyR_wyHjpFaxIbAjstF30QXxXOe5JXCbQ974iiU2bbEhB0Bo6dMZVicju0FTqcJ7K_GhQAWCq1NVYdjTJluyly6gS7IzVH3Q","width":5000},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAt0gZYuLOlctRK_o7yII7R7Vo61RvGvJvosdqN9s5-hb6LVTEqY-Wd4vVHKgTeTWECDc768MnD6DOmKjQeGKgGjlMadjS4Ac3IT6nwdn8UwVgD8Q6NO3jonD3eKswlTKAEhDCcC3eCMK_sMYzacTaCEzFGhT5gMa2kT6E_xGz4TgcL-O0W9MrZg","width":5760},{"height":3333,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAcx9zQB3zKe33f7SmxmY9A57k8aPotqfJCQt6_AeidaAz3-vUjfP3mQvakZHPxA6coOy0t31McxyWps8ADGv54gLr_hYRNkIvKzjq3lYrTvG8uEKyw1lM7vsYhnlrsJUIEhCJSHsBblp0h-EHtmrpgfjgGhSj0-ELX6ORCYceWlVkaYNj5OZ_lg","width":5000},{"height":437,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAcju4hMzaknY8m2QWmOPfOdgojYuywFPzUZlzxJY2xhC5fsRnVMAOprlCfUew2wMeSzYDZcSIGnB9yxARGTNO-BBuU_qvWk3v3f_zrpTJ4EWUL9kET1Nk0xcoctcpx3fTEhBeRkVXEEAJlGq9j9bPmO4DGhQKAt6cYXXfBLt9QcHAT1VYbXpJqQ","width":960},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/116369362047103291012\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAFYqM2NC6RYBDOvpsA4wxC7eWuhAVon4eZxrGp0pvr_PS4MLdeisWE9R_tq6dqjEOZglquDzIySq-BwVzYvvUZjixxCQ4xQ1bfWkUUVhzLJEb7Yg6IqGXhhZwBnTxzobeEhB1zYKec4FhjGMeSTJeKF9pGhTaOFTALC5I3RYLXknujpyH5FiYgg","width":5760},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/116369362047103291012\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAenm-KU2cCT5PoAhCa2Sm0bKpopEv4dYawoD5lFC45udEQhH2Z16vaI47-st1TByKs29OEcCFkz1Vr5yqrI34UPWW6I4JwZQcPuFYwAfdrgqp_q2knJVxIULG-Dx5TFFSEhD46DVYOw9o_kIgbG-E_KCdGhQUOmN-1AZmIIgEMn_-GoHPKIWzIQ","width":5760},{"height":3709,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/116369362047103291012\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAA6FyJAEUsw_LicsYJj1LQNFBu1ONBIysRib4ZuXyw_Qi03sy9e-H_hZjupX_9872akZ18GHfYDyKyzZ8Z0Kf0CLex-Y4X326RHO0PuY3V9o8etjYgK1FAlSsgJfV1sjBjEhDDWJedM48i6jDDZQQO4h9oGhTLzMIqKzfxHfHgr-iwgJdPbMPuMg","width":5564},{"height":3333,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAARnqzGgDq3RGaeqz0kp2SYlG5Y1diceYwM7rRJOcjqC3tD_ov8P_Anmeg8KyznN3VvCYhzuahCKEbGl8WlZW3oGmbRIjACRGQA9Jd2w6TEfbuvpepMFP_4Ndssr6feIJ5EhCRvUOgfH7pFNHLZS2bhwA7GhQ8D6TzyLqs9di_IWxeZtbakGWZmA","width":5000},{"height":3840,"html_attributions":["<a href=\"https:\/\/maps.google.com\/maps\/contrib\/110229124428129862960\/photos\">Spindogs<\/a>"],"photo_reference":"CmRaAAAAJ4exQ6ifZXjHcBfgjrInfNr1EE4T5XBh5KcIN_mGgYwXe4_KXieUpxwg382ePJGMm6HkYi-K1z-N685IWYWeBdselM7TOyDt4uGspzo0Y6a-tCq5oGVLR8HXbYn_b5MAEhCGXIYg_RPON6Ym5XtgFWdeGhRcq8iLby6xGNderLqhLURrsjC2Yg","width":5760}],"place_id":"ChIJK7_8bDYDbkgREXPRuCnmM3A","plus_code":{"compound_code":"FR8M+HH Cardiff, United Kingdom","global_code":"9C3RFR8M+HH"},"rating":5,"reference":"ChIJK7_8bDYDbkgREXPRuCnmM3A","reviews":[{"author_name":"Liam Darkside","author_url":"https:\/\/www.google.com\/maps\/contrib\/103708721103535619018\/reviews","language":"en","profile_photo_url":"https:\/\/lh5.ggpht.com\/-Sv1Ytpn_4ew\/AAAAAAAAAAI\/AAAAAAAAAAA\/0D9gviKPKZM\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"4 months ago","text":"Fantastic company, offered great advice, especially from Dave Morgan.  That guy is a legend, I wish they had 10 of him.  He really knows his stuff on a technical level but he is also just a top bloke.","time":1559145211},{"author_name":"Houston Mapstone","author_url":"https:\/\/www.google.com\/maps\/contrib\/107455956974572253438\/reviews","language":"en","profile_photo_url":"https:\/\/lh6.ggpht.com\/-ZfP_oBfcUVU\/AAAAAAAAAAI\/AAAAAAAAAAA\/hCQWr0ftQmo\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"5 months ago","text":"Chelsea delivered an excellent SEO training session, very informative and helpful.","time":1556197557},{"author_name":"Tara Peters","author_url":"https:\/\/www.google.com\/maps\/contrib\/106517777175719144692\/reviews","language":"en","profile_photo_url":"https:\/\/lh4.ggpht.com\/-Yqx7-NFne2Y\/AAAAAAAAAAI\/AAAAAAAAAAA\/t2o4DsLO7yo\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"a year ago","text":"Spindogs are a lovely company to be involved with. Each member of the team is incredibly friendly and welcoming. I have had the privilege to work here for a few weeks as an intern. The whole team have made my experience thoroughly enjoyable, and I have really felt like part of the crew. It's so important to work in an environment where you feel comfortable and happy, which is exactly the vibes that you get in and out of the office here. Thank you guys! :)","time":1516111149},{"author_name":"Ian Jolly","author_url":"https:\/\/www.google.com\/maps\/contrib\/111718589181691770368\/reviews","language":"en","profile_photo_url":"https:\/\/lh3.ggpht.com\/-zIKaCkj7Dlo\/AAAAAAAAAAI\/AAAAAAAAAAA\/55tfxr99ZCo\/s128-c0x00000000-cc-rp-mo-ba3\/photo.jpg","rating":5,"relative_time_description":"a year ago","text":"Great guys who do some exiting stuff. Such a fun company to work with and really get the creative juices flowing. Will definitely add value to your business with them on side.","time":1512647759},{"author_name":"Laura Lowe","author_url":"https:\/\/www.google.com\/maps\/contrib\/116024385364385977687\/reviews","language":"en","profile_photo_url":"https:\/\/lh5.ggpht.com\/-b0Pk9ek2mVQ\/AAAAAAAAAAI\/AAAAAAAAAAA\/GTxpbhOh9bM\/s128-c0x00000000-cc-rp-mo\/photo.jpg","rating":5,"relative_time_description":"a year ago","text":"THE most energised, forward thinking yet down to earth company I have ever worked for! It\u2019s a privilege to work with such a great team.","time":1516112718}],"scope":"GOOGLE","types":["point_of_interest","establishment"],"url":"https:\/\/maps.google.com\/?cid=8085058822928954129","user_ratings_total":21,"utc_offset":60,"vicinity":"54 Bute Street, Cardiff","website":"https:\/\/www.spindogs.co.uk\/"},"status":"OK"}');
+
+                if ($response && $response->status == 'OK') {
+                    $this->google_response = $response->result;
+                    file_put_contents($this->google_cache_path, json_encode($this->google_response));
+                    $this->useGoogleResponse();
+                }
+                elseif (!$response) {
+                    throw new Exception('There was an error querying the Google API, please verify your internet connectivity');
+                }
+                elseif ($response && isset($response->error_message)) {
+                    throw new Exception('Error reported from Google APIs: '.$response->error_message);
+                }
+            }
+            else {
+                $this->google_response = json_decode(file_get_contents($this->google_cache_path));
                 $this->useGoogleResponse();
             }
         }
@@ -163,6 +205,17 @@ class Places {
      */
     public function setName(string $name): void {
         $this->pl_name = $name;
+    }
+
+    /**
+     * @param string $type A valid Schema function name for processing of JSONLd
+     * @throws Exception
+     */
+    public function setType(string $type): void {
+        if (!in_array($type, self::PLACE_TYPE_WHITELIST))
+            throw new Exception('Invalid type used, please check it\'s valid');
+
+        $this->pl_type = $type;
     }
 
     /**
@@ -292,7 +345,7 @@ class Places {
         $org->name($this->pl_name);
         $org->url($this->pl_url);
 
-        $local_business = Schema::localBusiness();
+        $local_business = Schema::{$this->pl_type}();
         $local_business->name($this->pl_name);
         $local_business->url($this->pl_url);
         $local_business->telephone($this->pl_telephone);
@@ -316,8 +369,8 @@ class Places {
             $local_business->geo($this->pl_geo_coordinate);
 
         if (!empty($this->pl_contact_point)) {
-        	$local_business->contactPoint($this->pl_contact_point);
-		}
+            $local_business->contactPoint($this->pl_contact_point);
+        }
 
         if (!empty($this->pl_has_map))
             $local_business->hasMap($this->pl_has_map);
@@ -332,6 +385,49 @@ class Places {
         $graph->add($local_business);
 
         return $graph->toScript();
+    }
+
+    public function generateRatingsWidget() {
+        $place_url = $this->google_response->url;
+        $place_rating_width = ($this->google_response->rating * 20);
+        $place_rating_number = number_format($this->google_response->rating, 1);
+        return <<<EOD
+<div id="sd-gr-display">
+	<div class="header-colours">
+		<div class="blue"></div><div class="red"></div><div class="yellow"></div><div class="green"></div>
+	</div>
+	<a class="sd-gr-wrapper" href="{$place_url}" target="_blank">
+		<div class="sd-gr-inner">
+			<div class="sd-gr-icon">
+				<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 48 48">
+					<defs>
+						<path id="a"
+						      d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+					</defs>
+					<clipPath id="b">
+						<use xlink:href="#a" overflow="visible"/>
+					</clipPath>
+					<path clip-path="url(#b)" fill="#FBBC05" d="M0 37V11l17 13z"/>
+					<path clip-path="url(#b)" fill="#EA4335" d="M0 11l17 13 7-6.1L48 14V0H0z"/>
+					<path clip-path="url(#b)" fill="#34A853" d="M0 37l30-23 7.9 1L48 0v48H0z"/>
+					<path clip-path="url(#b)" fill="#4285F4" d="M48 48L17 24l-4-3 35-10z"/>
+				</svg>
+			</div>
+			<div class="sd-gr-rating">
+				<div class="sd-gr-rating-header">Google Ratings</div>
+				<div class="sd-gr-rating-wrapper">
+					<span class="sd-gr-rating-number">{$place_rating_number}</span>
+					<div class="sd-gr-rating-stars">
+						<div class="sd-gr-rating-stars-overlay"
+						     style="width: {$place_rating_width}%;">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</a>
+</div>
+EOD;
     }
 
 }

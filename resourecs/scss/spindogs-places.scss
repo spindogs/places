@@ -1,0 +1,96 @@
+#sd-gr-display {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  font-family: 'Open Sans', sans-serif;
+  background: rgb(244, 244, 244);
+  border-radius: 8px 0;
+
+  .header-colours {
+    display: flex;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 7px;
+
+
+    > div {
+      width: 100%;
+    }
+
+    .blue {
+      background: #4285F4;
+      border-radius: 50px 0 0 0;
+    }
+
+    .red {
+      background: #DB4437;
+    }
+
+    .yellow {
+      background: #F4B400;
+    }
+
+    .green {
+      background: #0F9D58;
+    }
+  }
+
+  .sd-gr-wrapper {
+    font-size: 1.1rem;
+    color: rgb(164, 164, 164);
+    text-decoration: none;
+
+    .sd-gr-inner {
+      display: flex;
+      padding: 0.8rem 0.8rem 0.2rem;
+
+      .sd-gr-icon {
+        margin-right: 0.5rem;
+
+        svg {
+          width: 50px;
+        }
+      }
+
+      .sd-gr-rating {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 0 0 5px 0;
+
+        .sd-gr-rating-header {
+          color: rgb(189, 189, 189);
+        }
+
+        .sd-gr-rating-wrapper {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+
+          .sd-gr-rating-number {
+            color: rgb(231, 113, 27) !important;
+            font-size: 1.5rem;
+          }
+
+          .sd-gr-rating-stars {
+            background-size: 17px 16px;
+            height: 16px;
+            position: relative;
+            top: 1px;
+            width: 83px;
+            background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAANCAQAAAAz1Zf0AAAAWklEQVR4AY3O0QbDQBCG0UNYQi0hhBJqr8Iy7/94vewYlp65/Ay//4WlLnQLt3BbeIRH5jBFPVMHmlHS0CRnSqdiT3GH1edb8RGmoy4GwrBhM4Qmebn8XDrwBW7xChrojlOZAAAAAElFTkSuQmCC);
+            .sd-gr-rating-stars-overlay {
+              background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAANCAYAAACZ3F9/AAAAcklEQVQoz2NgoDZ4Xij9nxxNASCNIJpUjQugGheQqvEBVOMDfIoSgPg9VCEh/B7F+UCOAhDvJ6AJJK+Ay/Z8HJryCfnNAIdGA0IaC3BonEBI4wakQIgH4vsEQxeqERYIAlC+AFKg4QwYByCuxyFXj56KAEHuodjGnEtTAAAAAElFTkSuQmCC);
+              background-size: 17px 16px;
+              height: 16px;
+              top: 1px;
+              position: absolute;
+            }
+          }
+        }
+      }
+    }
+  }
+}
