@@ -4,7 +4,8 @@
   right: 0;
   font-family: 'Open Sans', sans-serif;
   background: rgb(244, 244, 244);
-  border-radius: 8px 0;
+  border-radius: 8px 0 0;
+  line-height: 21px;
 
   .header-colours {
     display: flex;
@@ -13,7 +14,6 @@
     top: 0;
     left: 0;
     height: 7px;
-
 
     > div {
       width: 100%;
@@ -38,16 +38,16 @@
   }
 
   .sd-gr-wrapper {
-    font-size: 1.1rem;
+    font-size: 18px;
     color: rgb(164, 164, 164);
     text-decoration: none;
 
     .sd-gr-inner {
       display: flex;
-      padding: 0.8rem 0.8rem 0.2rem;
+      padding: 13px 13px 3px;
 
       .sd-gr-icon {
-        margin-right: 0.5rem;
+        margin-right: 10px;
 
         svg {
           width: 50px;
@@ -71,7 +71,7 @@
 
           .sd-gr-rating-number {
             color: rgb(231, 113, 27) !important;
-            font-size: 1.5rem;
+            font-size: 24px;
           }
 
           .sd-gr-rating-stars {
@@ -81,6 +81,7 @@
             top: 1px;
             width: 83px;
             background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAANCAQAAAAz1Zf0AAAAWklEQVR4AY3O0QbDQBCG0UNYQi0hhBJqr8Iy7/94vewYlp65/Ay//4WlLnQLt3BbeIRH5jBFPVMHmlHS0CRnSqdiT3GH1edb8RGmoy4GwrBhM4Qmebn8XDrwBW7xChrojlOZAAAAAElFTkSuQmCC);
+
             .sd-gr-rating-stars-overlay {
               background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAANCAYAAACZ3F9/AAAAcklEQVQoz2NgoDZ4Xij9nxxNASCNIJpUjQugGheQqvEBVOMDfIoSgPg9VCEh/B7F+UCOAhDvJ6AJJK+Ay/Z8HJryCfnNAIdGA0IaC3BonEBI4wakQIgH4vsEQxeqERYIAlC+AFKg4QwYByCuxyFXj56KAEHuodjGnEtTAAAAAElFTkSuQmCC);
               background-size: 17px 16px;

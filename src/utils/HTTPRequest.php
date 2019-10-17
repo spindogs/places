@@ -1,7 +1,8 @@
 <?php
 
 namespace Spindogs\Places\Utils;
-use Guzzle\Http;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 class HTTPRequest {
 
@@ -9,19 +10,18 @@ class HTTPRequest {
 
     /**
      * Performs a HTTP request to Google for the specified place ID
-     *
      * @param string $api_key
      * @param string $place_id
+     * @throws GuzzleException
      * @return mixed
      */
     public static function performGooglePlaceQuery(string $api_key, string $place_id) {
-        $client = new Http\Client();
+        $client = new Client();
 
         $http_params = http_build_query(['place_id' => $place_id, 'key' => $api_key]);
-        $client = $client->get(self::PLACE_API_URL . '?' . $http_params);
-        $response = $client->send();
+        $resource = $client->request('GET', self::PLACE_API_URL . '?' . $http_params);
 
-        return json_decode($response->getBody());
+        return json_decode($resource->getBody());
     }
 
 }
