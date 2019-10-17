@@ -66,8 +66,9 @@ class Places {
      * @var $pl_image string
      * @var $pl_telephone string
      * @var $pl_has_map string
+     * @var $pl_widget_url string
      */
-    protected $pl_name, $pl_url, $pl_logo, $pl_description, $pl_image, $pl_telephone, $pl_has_map;
+    protected $pl_name, $pl_url, $pl_logo, $pl_description, $pl_image, $pl_telephone, $pl_has_map, $pl_widget_url;
 
     /**
      * @var $pl_type string
@@ -259,6 +260,14 @@ class Places {
     }
 
     /**
+     * Sets the URL to be used for the widget on click
+     * @param string $url
+     */
+    public function setWidgetUrl(string $url): void {
+        $this->pl_widget_url = $url;
+    }
+
+    /**
      * Sets the phone number for the business (must be in international format)
      * @param string $number
      */
@@ -388,7 +397,7 @@ class Places {
     }
 
     public function generateRatingsWidget() {
-        $place_url = $this->google_response->url;
+        $place_url = ($this->pl_widget_url ?? $this->google_response->url);
         $place_rating_width = ($this->google_response->rating * 20);
         $place_rating_number = number_format($this->google_response->rating, 1);
         return <<<EOD
